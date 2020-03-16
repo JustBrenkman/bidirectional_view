@@ -1,5 +1,9 @@
-
 import 'package:flutter/material.dart';
+
+import 'package:vector_math/vector_math_64.dart' as math;
+import 'package:matrix_gesture_detector/matrix_gesture_detector.dart';
+
+import 'scaling_gesture_detector.dart';
 
 class BiDirectionalView extends StatefulWidget {
   final List<BiWrapper> children;
@@ -7,51 +11,119 @@ class BiDirectionalView extends StatefulWidget {
   const BiDirectionalView({Key key, this.children}) : super(key: key);
 
   @override
-  _BiDirectionalViewState createState() => _BiDirectionalViewState(children: children);
+  _BiDirectionalViewState createState() =>
+      _BiDirectionalViewState(children: children);
 }
 
 class _BiDirectionalViewState extends State<BiDirectionalView> {
-  double x = 0, y = 0;
   final List<BiWrapper> children;
 
-  _BiDirectionalViewState({this.children});
+  Matrix4 matrix;
+
+  _BiDirectionalViewState({this.children}) {
+    matrix = Matrix4.identity();
+  }
 
   @override
+  initState() {
+    matrix = Matrix4.identity();
+    super.initState();
+  }
+
+  double scale = 0.3;
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanUpdate: (event) {
+    return ScalingGestureDetector(
+      onScaleUpdate: (avgPos, scale_) {
         setState(() {
-          x += event.delta.dx;
-          y += event.delta.dy;
+          print('scale update: $scale');
+          // TODO: update the scale (can't test with trackpad)
         });
       },
-      child: Container(
-        color: Colors.grey[700],
-        child: CustomMultiChildLayout(
-          delegate: BiDirectionalViewLayoutDelegate(x, y, 0.0, children: children),
-          children: children,
+      onPanUpdate: (pos, delta) {
+        setState(() {
+          math.Vector4 vec = math.Vector4(
+              delta.dx / (scale * 3), delta.dy / (scale * 3), 0.0, 0.0);
+          Matrix4 toAdd = Matrix4.zero();
+          toAdd.setColumn(3, vec);
+          matrix = matrix + toAdd;
+        });
+      },
+      child: GestureDetector(
+        onDoubleTap: () {
+          setState(() {
+            scale += 0.1;
+            Matrix4 toAdd = Matrix4.zero();
+            toAdd.setDiagonal(math.Vector4(scale, scale, 0.0, 0.0));
+            matrix = matrix + toAdd;
+          });
+        },
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.grey[700],
+          child: Transform(
+            transform: matrix,
+            child: CustomMultiChildLayout(
+              delegate:
+                  BiDirectionalViewLayoutDelegate(this, children: children),
+              children: children,
+            ),
+          ),
         ),
       ),
     );
+
+    /*
+    // TODO: Still may work?
+    return MatrixGestureDetector(
+      onMatrixUpdate: (Matrix4 m, Matrix4 tm, Matrix4 sm, Matrix4 rm) {
+        // print ('here${i++}');
+
+        setState(() {
+          double sc = 5;
+          matrix = m * (Matrix4.identity()..setColumn(3, math.Vector4(tm[3]*sm[15]*sc,tm[7]*sm[15]*sc,0,1)));
+          print (matrix);
+          // matrix += (tm + sm) - (Matrix4.identity() * 2.0);
+          // matrix = m * (sm..scale(1.5));
+          // matrix = Matrix4.identity();
+        });
+      },
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.grey[700],
+        child: Transform(
+          transform: matrix,
+          child: CustomMultiChildLayout(
+            delegate: BiDirectionalViewLayoutDelegate(this, children: children),
+            children: children,
+          ),
+        ),
+      ),
+    );
+    */
   }
 }
 
 class BiDirectionalViewLayoutDelegate extends MultiChildLayoutDelegate {
-  final double x, y, scale;
   final List<BiWrapper> children;
   final Size size = Size(200, 200);
 
-  BiDirectionalViewLayoutDelegate(this.x, this.y, this.scale, {this.children});
+  final _BiDirectionalViewState viewState;
+
+  BiDirectionalViewLayoutDelegate(this.viewState, {this.children});
 
   @override
   void performLayout(Size size) {
-    Matrix4 matrix = Matrix4.identity()
-        ..translate(x ?? 0, y ?? 0, 0);
-
-    if (children != null) children.forEach((child) {
-      layoutChild(child.key, BoxConstraints.loose(size));
-      positionChild(child.key, Offset(x, y) + child.offset);
-    });
+    List<double> vec = [0, 0, 0];
+    viewState?.matrix?.getTranslation()?.copyIntoArray(vec);
+    if (children != null) {
+      children.forEach((child) {
+        layoutChild(child.key, BoxConstraints.loose(size));
+        positionChild(child.key, Offset(vec[0], vec[1]) + child.worldPos);
+      });
+    }
   }
 
   @override
@@ -61,18 +133,19 @@ class BiDirectionalViewLayoutDelegate extends MultiChildLayoutDelegate {
 }
 
 class BiWrapper extends StatelessWidget {
-  final Size size;
-  final Offset offset;
+  final Offset worldPos;
 
-  BiWrapper({this.offset = const Offset(300, 300), this.size = const Size(100, 100)}) : super(key: GlobalKey());
+  BiWrapper({
+    this.worldPos = const Offset(0, 0),
+  }) : super(key: GlobalKey());
 
   @override
   Widget build(BuildContext context) {
     return LayoutId(
       id: key,
       child: Container(
-        width: size.width,
-        height: size.height,
+        width: 100,
+        height: 100,
         color: Colors.red,
       ),
     );

@@ -43,8 +43,8 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Container(
         child: BiDirectionalView(
           children: <BiWrapper>[
-            BiWrapper(size: Size(10, 10),),
-            BiWrapper(offset: Offset(100, 100),)
+            BiWrapper(),
+            BiWrapper(worldPos: Offset(600, -300),)
           ]
         ),
       )

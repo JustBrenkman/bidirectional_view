@@ -11,6 +11,7 @@
 
 windows/*
 pubspec.lock
+.vscode/*
 
 # IntelliJ related
 *.iml
