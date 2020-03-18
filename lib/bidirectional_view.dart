@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import 'package:vector_math/vector_math_64.dart' as math;
@@ -30,79 +32,153 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
     super.initState();
   }
 
-  double scale = 0.3;
+  double scale = 1.0;
   @override
   Widget build(BuildContext context) {
-    return ScalingGestureDetector(
-      onScaleUpdate: (avgPos, scale_) {
-        setState(() {
-          print('scale update: $scale');
-          // TODO: update the scale (can't test with trackpad)
-        });
-      },
-      onPanUpdate: (pos, delta) {
-        setState(() {
-          math.Vector4 vec = math.Vector4(
-              delta.dx / (scale * 3), delta.dy / (scale * 3), 0.0, 0.0);
-          Matrix4 toAdd = Matrix4.zero();
-          toAdd.setColumn(3, vec);
-          matrix = matrix + toAdd;
-        });
-      },
-      child: GestureDetector(
-        onDoubleTap: () {
-          setState(() {
-            scale += 0.1;
-            Matrix4 toAdd = Matrix4.zero();
-            toAdd.setDiagonal(math.Vector4(scale, scale, 0.0, 0.0));
-            matrix = matrix + toAdd;
-          });
-        },
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: Colors.grey[700],
-          child: Transform(
-            transform: matrix,
-            child: CustomMultiChildLayout(
-              delegate:
-                  BiDirectionalViewLayoutDelegate(this, children: children),
-              children: children,
+    /// This converts delta pixels to delta global (2D) space
+    ///
+    /// This was found with the following:
+    /// ```
+    /// double c = 65.0;
+    /// math.Vector4 vec = math.Vector4((delta.dx) * (1/(scale*c)), (delta.dy) * (1/(scale*c)), 0.0, 0.0);
+    /// print ('${delta.dx}: ($scale, ${(1/(scale*c))})');
+    /// ```
+    /// to find different `c` values given `scale`.
+    ///
+    /// Thus, f(x) returns the function that fits the scale to the transformation.
+    /// This is used to keep the distance the users mouse travels consistent with the view.
+    ///
+    /// The distance travelled as `scale` changes is non-linear and this is function I found
+    /// after trying many values (recorded here) and using regression to find a best fit line.
+    ///
+    /// Data (copy paste into excel, comma delimited):
+    /// Note that x is `scale`, y is (1/(scale*c))
+    /// where I found c manually to make the drag feel natural (keep mouse position consistent)
+    ///
+    /// x,y
+    /// 0.015625,0.984615385
+    /// 0.03125,0.96969697
+    /// 0.0625,0.941176471
+    /// 0.125,0.888888889
+    /// 0.25,0.8
+    /// 0.5,0.666666667
+    /// 1,0.5
+    /// 2,0.333333333
+    /// 3,0.245098039
+    /// 4,0.2
+    ///
+    /// Using excel, the best regression was polynomial (n=5, R^2=1):
+    /// y = -0.006x^5 + 0.0686x^4 - 0.3039x^3 + 0.6859x^2 - 0.9418^x + 0.998
+    double f(double x) => (-0.006 * pow(x, 5) +
+            0.0686 * pow(x, 4) -
+            0.3039 * pow(x, 3) +
+            0.6859 * pow(x, 2) -
+            0.9418 * pow(x, 1) +
+            0.998)
+        .abs();
+
+    return Container(
+      child: Stack(
+        children: <Widget>[
+          ScalingGestureDetector(
+            onScaleUpdate: (avgPos, scale_) {
+              setState(() {
+                print('scale update: $scale');
+                // TODO: update the scale (can't test with trackpad)
+              });
+            },
+            onPanUpdate: (pos, delta) {
+              setState(() {
+                double y = f(scale);
+                math.Vector4 vec =
+                    math.Vector4(delta.dx * y, delta.dy * y, 0.0, 0.0);
+
+                Matrix4 toAdd = Matrix4.zero();
+                toAdd.setColumn(3, vec);
+                matrix = matrix + toAdd;
+              });
+            },
+            child: GestureDetector(
+              onDoubleTap: () {
+                setState(() {
+                  _updateMatrixScale(scale + 0.1);
+                });
+              },
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.grey[700],
+                child: Transform(
+                  transform: matrix,
+                  child: CustomMultiChildLayout(
+                    delegate: BiDirectionalViewLayoutDelegate(this,
+                        children: children),
+                    children: children,
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                width: 200,
+                height: 50,
+                child: Center(
+                  child: Slider(
+                    inactiveColor: Colors.purple,
+                    activeColor: Colors.purpleAccent,
+                    value: scale,
+                    min: 0.05,
+                    max: 10,
+                    divisions: 50,
+                    label: scale.toStringAsFixed(2),
+                    onChanged: (double value) {
+                      setState(() {
+                        _updateMatrixScale(value);
+                      });
+                    },
+                  ),
+                ),
+              )),
+        ],
       ),
     );
 
     /*
-    // TODO: Still may work?
-    return MatrixGestureDetector(
-      onMatrixUpdate: (Matrix4 m, Matrix4 tm, Matrix4 sm, Matrix4 rm) {
-        // print ('here${i++}');
+                      // TODO: Still may work?
+                      return MatrixGestureDetector(
+                        onMatrixUpdate: (Matrix4 m, Matrix4 tm, Matrix4 sm, Matrix4 rm) {
+                          // print ('here${i++}');
+                  
+                          setState(() {
+                            double sc = 5;
+                            matrix = m * (Matrix4.identity()..setColumn(3, math.Vector4(tm[3]*sm[15]*sc,tm[7]*sm[15]*sc,0,1)));
+                            print (matrix);
+                            // matrix += (tm + sm) - (Matrix4.identity() * 2.0);
+                            // matrix = m * (sm..scale(1.5));
+                            // matrix = Matrix4.identity();
+                          });
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          height: double.infinity,
+                          color: Colors.grey[700],
+                          child: Transform(
+                            transform: matrix,
+                            child: CustomMultiChildLayout(
+                              delegate: BiDirectionalViewLayoutDelegate(this, children: children),
+                              children: children,
+                            ),
+                          ),
+                        ),
+                      );
+                      */
+  }
 
-        setState(() {
-          double sc = 5;
-          matrix = m * (Matrix4.identity()..setColumn(3, math.Vector4(tm[3]*sm[15]*sc,tm[7]*sm[15]*sc,0,1)));
-          print (matrix);
-          // matrix += (tm + sm) - (Matrix4.identity() * 2.0);
-          // matrix = m * (sm..scale(1.5));
-          // matrix = Matrix4.identity();
-        });
-      },
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.grey[700],
-        child: Transform(
-          transform: matrix,
-          child: CustomMultiChildLayout(
-            delegate: BiDirectionalViewLayoutDelegate(this, children: children),
-            children: children,
-          ),
-        ),
-      ),
-    );
-    */
+  void _updateMatrixScale(double newScale) {
+    scale = newScale;
+    matrix.setDiagonal(math.Vector4(scale, scale, 1.0, 1.0));
   }
 }
 
