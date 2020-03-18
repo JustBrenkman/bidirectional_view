@@ -100,9 +100,7 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
             },
             child: GestureDetector(
               onDoubleTap: () {
-                setState(() {
-                  _updateMatrixScale(scale + 0.1);
-                });
+                setState(() => _updateMatrixScale(scale + 0.1));
               },
               child: Container(
                 width: double.infinity,
@@ -122,22 +120,38 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
           Align(
               alignment: Alignment.bottomRight,
               child: Container(
-                width: 200,
+                width: 300,
                 height: 50,
+                // color: Color.fromRGBO(200, 200, 200, 0.5),
                 child: Center(
-                  child: Slider(
-                    inactiveColor: Colors.purple,
-                    activeColor: Colors.purpleAccent,
-                    value: scale,
-                    min: 0.05,
-                    max: 10,
-                    divisions: 50,
-                    label: scale.toStringAsFixed(2),
-                    onChanged: (double value) {
-                      setState(() {
-                        _updateMatrixScale(value);
-                      });
-                    },
+                  child: Stack(
+                    // mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Align(
+                          alignment: Alignment.centerLeft,
+                          child: Icon(Icons.zoom_out)),
+                      Align(
+                        alignment: Alignment.center,
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Slider(
+                            inactiveColor: Colors.purple,
+                            activeColor: Colors.purpleAccent,
+                            value: scale,
+                            min: 0.05,
+                            max: 3.0,
+                            divisions: 50,
+                            label: scale.toStringAsFixed(2),
+                            onChanged: (double value) {
+                              setState(() => _updateMatrixScale(value));
+                            },
+                          ),
+                        ),
+                      ),
+                      Align(
+                          alignment: Alignment.centerRight,
+                          child: Icon(Icons.zoom_in)),
+                    ],
                   ),
                 ),
               )),
