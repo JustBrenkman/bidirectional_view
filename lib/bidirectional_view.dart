@@ -74,6 +74,7 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
                 height: double.infinity,
                 color: Colors.grey[700],
                 child: Transform(
+                  alignment: FractionalOffset.center, // This makes it scale from the center (make a setting for the user)
                   transform: matrix,
                   child: CustomMultiChildLayout(
                     delegate: delegate,
