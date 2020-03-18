@@ -1,8 +1,11 @@
 import 'dart:io';
 
-import 'package:bidirectional_view/bidirectional_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+
+import 'package:provider/provider.dart';
+
+import 'package:bidirectional_view/bidirectional_view.dart';
 
 void main() {
   if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
@@ -36,18 +39,31 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
   @override
   Widget build(BuildContext context) {
+    Widget child = Container(
+      width: 100,
+      height: 100,
+      color: Colors.red,
+    );
+
+    BiDirectionalLayout layout = BiDirectionalLayout(children: <BiWrapper>[
+      BiWrapper(child: child, worldPos: Offset(0, 0)),
+      BiWrapper(child: child, worldPos: Offset(600, -300),),
+      BiWrapper(child: child, worldPos: Offset(600, 300),)
+    ]);
+
     return Scaffold(
       body: Container(
-        child: BiDirectionalView(
-          children: <BiWrapper>[
-            BiWrapper(),
-            BiWrapper(worldPos: Offset(600, -300),)
-          ]
+        child: ChangeNotifierProvider(
+          create: (_) => layout,
+          child: Consumer(
+            builder: (BuildContext context, BiDirectionalLayout _layout, Widget child) {
+              return BiDirectionalView(layout: _layout);
+            }
+          ),
         ),
-      )
+      ),
     );
   }
 }
