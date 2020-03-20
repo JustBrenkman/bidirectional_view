@@ -13,15 +13,18 @@ class BiDirectionalLayout extends ChangeNotifier {
   ///
   /// This function returns each [Widget] wrapped with a
   /// [LayoutId] so that they can be used by the delegate.
-  List<LayoutId> get widgets => children
+  List<LayoutId> widgets(Matrix4 transform) => children
       .map((w) => LayoutId(
           id: w.key,
-          child: GestureDetector(
-              child: w.child,
-              onPanUpdate: (details) {
-                w.updatePos(details.delta);
-                notifyListeners();
-              })))
+          child: Transform(
+            transform: transform,
+            child: GestureDetector(
+                child: w.child,
+                onPanUpdate: (details) {
+                  w.updatePos(details.delta);
+                  notifyListeners();
+                }),
+          )))
       .toList();
 }
 
@@ -56,72 +59,60 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
     BiDirectionalViewLayoutDelegate delegate =
         BiDirectionalViewLayoutDelegate(this, layout: widget.layout);
 
-    return Container(
-      child: Stack(
-        children: <Widget>[
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onPanUpdate: (details) {
-              setState(() => _updateMatrixTransform(details.delta));
-            },
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onDoubleTap: () {
-                setState(() => _updateMatrixScale(scale + 0.1));
-              },
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.grey[700],
-                child: Transform(
-                  alignment: FractionalOffset.center, // This makes it scale from the center (make a setting for the user)
-                  transform: matrix,
-                  child: CustomMultiChildLayout(
-                    delegate: delegate,
-                    children: delegate.layout.widgets,
-                  ),
-                ),
-              ),
-            ),
+    return Stack(
+      children: <Widget>[
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanUpdate: (details) {
+            setState(() => _updateMatrixTransform(details.delta));
+          },
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.grey[700],
           ),
-          Align(
-              alignment: Alignment.bottomRight,
-              child: Container(
-                width: 300,
-                height: 50,
-                child: Center(
-                  child: Stack(
-                    children: <Widget>[
-                      Align(
-                          alignment: Alignment.centerLeft,
-                          child: Icon(Icons.zoom_out)),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Slider(
-                            inactiveColor: Colors.purple,
-                            activeColor: Colors.purpleAccent,
-                            value: scale,
-                            min: 0.05,
-                            max: 3.0,
-                            divisions: 50,
-                            label: scale.toStringAsFixed(2),
-                            onChanged: (double value) {
-                              setState(() => _updateMatrixScale(value));
-                            },
-                          ),
+        ),
+        CustomMultiChildLayout(
+          delegate: delegate,
+          children: delegate.layout.widgets(matrix),
+        ),
+        Align(
+            alignment: Alignment.bottomRight,
+            child: Container(
+              width: 300,
+              height: 50,
+              child: Center(
+                child: Stack(
+                  children: <Widget>[
+                    Align(
+                        alignment: Alignment.centerLeft,
+                        child: Icon(Icons.zoom_out)),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Slider(
+                          inactiveColor: Colors.purple,
+                          activeColor: Colors.purpleAccent,
+                          value: scale,
+                          min: 0.05,
+                          max: 3.0,
+                          divisions: 50,
+                          label: scale.toStringAsFixed(2),
+                          onChanged: (double value) {
+                            setState(() => _updateMatrixScale(value));
+                          },
                         ),
                       ),
-                      Align(
-                          alignment: Alignment.centerRight,
-                          child: Icon(Icons.zoom_in)),
-                    ],
-                  ),
+                    ),
+                    Align(
+                        alignment: Alignment.centerRight,
+                        child: Icon(Icons.zoom_in)),
+                  ],
                 ),
-              )),
-        ],
-      ),
+              ),
+            )),
+      ],
     );
   }
 
