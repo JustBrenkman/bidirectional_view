@@ -2,22 +2,27 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'package:vector_math/vector_math_64.dart' as math;
-
+/// Contains all [BiWrapper]s to display using a [_BiDirectionalViewLayoutDelegate].
+///
+/// This should be passed to a [BiDirectionalView].
 class BiDirectionalLayout extends ChangeNotifier {
-  final List<BiWrapper> children;
+  /// The list of children to display.
+  List<BiWrapper> children;
 
-  BiDirectionalLayout({@required this.children}) : super();
+  /// Default constructor.
+  BiDirectionalLayout({List<BiWrapper> children})
+      : this.children = children ?? const [],
+        super();
 
   /// All [Widget]s that this layout displays.
   ///
-  /// This function returns each [Widget] wrapped with a
+  /// This function returns each [BiWrapper.child] wrapped with a
   /// [LayoutId] so that they can be used by the delegate.
-  List<LayoutId> widgets(Offset origin, double scale) => children
+  List<LayoutId> widgets(double scale) => children
       .map((w) => LayoutId(
           id: w.key,
           child: Transform(
-            transform: _transform(w, origin, scale),
+            transform: _transform(scale),
             child: GestureDetector(
                 child: w.child,
                 onPanUpdate: (details) {
@@ -27,17 +32,27 @@ class BiDirectionalLayout extends ChangeNotifier {
           )))
       .toList();
 
-  Matrix4 _transform(BiWrapper w, Offset origin, double scale) {
+  /// The scaling for this widget based on the scale of the [_BiDirectionalViewState.scale].
+  ///
+  /// NOTE: The translation is not handled in this function, that should be handled
+  /// by the [_BiDirectionalViewLayoutDelegate]. All this does is scale the widget.
+  Matrix4 _transform(double scale) {
     return Matrix4.identity()..scale(scale, scale);
   }
 }
 
+/// A widget which can be translated and scaled in 2 directions.
+///
+/// It requires a [BiDirectionalLayout] which has the children it should display.
 class BiDirectionalView extends StatefulWidget {
+  /// The layout this [Widget] displays.
   final BiDirectionalLayout _layout;
 
+  /// The layout this [Widget] displays.
   BiDirectionalLayout get layout => _layout;
 
-  const BiDirectionalView({Key key, BiDirectionalLayout layout})
+  /// Default constructor which requires a [layout].
+  const BiDirectionalView({Key key, @required BiDirectionalLayout layout})
       : _layout = layout,
         super(key: key);
 
@@ -45,10 +60,15 @@ class BiDirectionalView extends StatefulWidget {
   _BiDirectionalViewState createState() => _BiDirectionalViewState();
 }
 
+/// The State for a [BiDirectionalView].
 class _BiDirectionalViewState extends State<BiDirectionalView> {
+  /// The scale (zoom) of the view.
   double scale;
+
+  /// The offset from (0,0).
   Offset origin;
 
+  /// Default constructor.
   _BiDirectionalViewState();
 
   @override
@@ -63,8 +83,8 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
         Offset(MediaQuery.of(context).size.width / 2,
             MediaQuery.of(context).size.height / 2);
 
-    BiDirectionalViewLayoutDelegate delegate =
-        BiDirectionalViewLayoutDelegate(this, layout: widget.layout);
+    _BiDirectionalViewLayoutDelegate delegate =
+        _BiDirectionalViewLayoutDelegate(this, layout: widget.layout);
 
     return Stack(
       children: <Widget>[
@@ -79,7 +99,7 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
         ),
         CustomMultiChildLayout(
           delegate: delegate,
-          children: delegate.layout.widgets(origin, scale),
+          children: delegate.layout.widgets(scale),
         ),
         Align(
             alignment: Alignment.bottomRight,
@@ -120,19 +140,25 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
     );
   }
 
+  /// Updates the scale to be [newScale] and calls [setState].
   void _updateMatrixScale(double newScale) {
     setState(() {
       scale = newScale;
     });
   }
 
+  /// Updates the origin to be offset by [delta] and calls [setState].
+  ///
+  /// Note that this is not linear, it depends on the scale. Thus,
+  /// it converts delta (which is in screen pixels) to a global position
+  /// (same as [origin]) and then adds this to [origin].
   void _updateMatrixTransform(Offset delta) {
     setState(() {
       origin += delta * screenToGlobal(scale);
     });
   }
 
-  /// This converts delta pixels to delta global (2D) space
+  /// This converts delta pixels to delta global (2D) space.
   ///
   /// This was found with the following:
   /// ```
@@ -175,16 +201,21 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
       .abs();
 }
 
-class BiDirectionalViewLayoutDelegate extends MultiChildLayoutDelegate {
+/// Handles displaying all [BiDirectionalLayout.children] properly.
+class _BiDirectionalViewLayoutDelegate extends MultiChildLayoutDelegate {
+  /// The layout this is displaying.
   final BiDirectionalLayout layout;
+
+  /// The state of the view it is displaying.
+  ///
+  /// This is necessary since it needs [_BiDirectionalViewState.origin] and [_BiDirectionalViewState.scale].
   final _BiDirectionalViewState viewState;
 
-  BiDirectionalViewLayoutDelegate(this.viewState, {@required this.layout});
+  /// Default constructor which requires a [layout].
+  _BiDirectionalViewLayoutDelegate(this.viewState, {@required this.layout});
 
   @override
   void performLayout(Size size) {
-    // Offset offset = Offset(size.width/2, size.height/2);
-
     layout.children.forEach((wrapper) {
       layoutChild(wrapper.key, BoxConstraints.loose(size));
       positionChild(
@@ -198,16 +229,24 @@ class BiDirectionalViewLayoutDelegate extends MultiChildLayoutDelegate {
   }
 }
 
+/// Wrapper for any sized [Widget] (eg cannot be infinite) which contains a position.
 class BiWrapper {
+  /// The [Widget] to display.
   Widget child;
+
+  /// The position of this object when displaying it.
   Offset worldPos;
+
+  /// A key to be used by a [MultiChildLayoutDelegate] during layout.
   final GlobalKey key;
 
+  /// Default constructor. Must have a [child] and defaults to (0,0).
   BiWrapper({
     @required this.child,
     this.worldPos = const Offset(0, 0),
     GlobalKey key,
   }) : this.key = key ?? GlobalKey();
 
+  /// Offset [worldPos] by [pos].
   void updatePos(Offset pos) => worldPos += pos;
 }
