@@ -128,7 +128,7 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
 
   void _updateMatrixTransform(Offset delta) {
     setState(() {
-      origin += delta * f(scale);
+      origin += delta * screenToGlobal(scale);
     });
   }
 
@@ -166,7 +166,7 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
   ///
   /// Using excel, the best regression was polynomial (n=5, R^2=1):
   /// y = -0.006x^5 + 0.0686x^4 - 0.3039x^3 + 0.6859x^2 - 0.9418^x + 0.998
-  double f(double x) => (-0.006 * pow(x, 5) +
+  double screenToGlobal(double x) => (-0.006 * pow(x, 5) +
           0.0686 * pow(x, 4) -
           0.3039 * pow(x, 3) +
           0.6859 * pow(x, 2) -
