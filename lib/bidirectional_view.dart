@@ -51,9 +51,14 @@ class BiDirectionalView extends StatefulWidget {
   /// The layout this [Widget] displays.
   BiDirectionalLayout get layout => _layout;
 
+  /// The [Color] of the background.
+  final Color backgroundColor;
+
   /// Default constructor which requires a [layout].
-  const BiDirectionalView({Key key, @required BiDirectionalLayout layout})
+  const BiDirectionalView(
+      {Key key, @required BiDirectionalLayout layout, Color backgroundColor})
       : _layout = layout,
+        this.backgroundColor = backgroundColor ?? Colors.grey,
         super(key: key);
 
   @override
@@ -86,57 +91,59 @@ class _BiDirectionalViewState extends State<BiDirectionalView> {
     _BiDirectionalViewLayoutDelegate delegate =
         _BiDirectionalViewLayoutDelegate(this, layout: widget.layout);
 
-    return Stack(
-      children: <Widget>[
-        GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onPanUpdate: (details) => _updateMatrixTransform(details.delta),
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Colors.grey[700],
-          ),
-        ),
-        CustomMultiChildLayout(
-          delegate: delegate,
-          children: delegate.layout.widgets(scale),
-        ),
-        Align(
-            alignment: Alignment.bottomRight,
+    return ClipRect(
+      child: Stack(
+        children: <Widget>[
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanUpdate: (details) => _updateMatrixTransform(details.delta),
             child: Container(
-              width: 300,
-              height: 50,
-              child: Center(
-                child: Stack(
-                  children: <Widget>[
-                    Align(
-                        alignment: Alignment.centerLeft,
-                        child: Icon(Icons.zoom_out)),
-                    Align(
-                      alignment: Alignment.center,
-                      child: Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: Slider(
-                          inactiveColor: Colors.purple,
-                          activeColor: Colors.purpleAccent,
-                          value: scale,
-                          min: 0.05,
-                          max: 3.0,
-                          divisions: 50,
-                          label: scale.toStringAsFixed(2),
-                          onChanged: (double value) =>
-                              _updateMatrixScale(value),
+              width: double.infinity,
+              height: double.infinity,
+              color: widget.backgroundColor,
+            ),
+          ),
+          CustomMultiChildLayout(
+            delegate: delegate,
+            children: delegate.layout.widgets(scale),
+          ),
+          Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                width: 300,
+                height: 50,
+                child: Center(
+                  child: Stack(
+                    children: <Widget>[
+                      Align(
+                          alignment: Alignment.centerLeft,
+                          child: Icon(Icons.zoom_out)),
+                      Align(
+                        alignment: Alignment.center,
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Slider(
+                            inactiveColor: Colors.purple,
+                            activeColor: Colors.purpleAccent,
+                            value: scale,
+                            min: 0.05,
+                            max: 3.0,
+                            divisions: 50,
+                            label: scale.toStringAsFixed(2),
+                            onChanged: (double value) =>
+                                _updateMatrixScale(value),
+                          ),
                         ),
                       ),
-                    ),
-                    Align(
-                        alignment: Alignment.centerRight,
-                        child: Icon(Icons.zoom_in)),
-                  ],
+                      Align(
+                          alignment: Alignment.centerRight,
+                          child: Icon(Icons.zoom_in)),
+                    ],
+                  ),
                 ),
-              ),
-            )),
-      ],
+              )),
+        ],
+      ),
     );
   }
 
